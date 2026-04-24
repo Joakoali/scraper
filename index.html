@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BCN Lead Finder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #0a0a0f; --surface: #12121a; --border: #1e1e2e;
+    --accent: #00ff88; --accent2: #ff3366; --text: #e8e8f0;
+    --muted: #666680; --card: #16161f;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif; min-height: 100vh; padding: 24px; max-width: 900px; margin: 0 auto; }
+  .header { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+  .header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+  .header h1 span { color: var(--accent); }
+  .badge { background: var(--accent); color: #000; font-family: 'Space Mono', monospace; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; letter-spacing: 1px; }
+  .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  label { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  input, select { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; padding: 10px 14px; outline: none; transition: border-color 0.2s; width: 100%; }
+  input:focus, select:focus { border-color: var(--accent); }
+  select option { background: var(--surface); }
+  .btn { background: var(--accent); border: none; border-radius: 8px; color: #000; cursor: pointer; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; padding: 12px 24px; transition: all 0.2s; width: 100%; margin-top: 4px; }
+  .btn:hover { background: #00cc6a; transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+  .btn-secondary { background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 12px; padding: 8px; margin-top: 8px; }
+  .btn-secondary:hover { border-color: var(--accent2); color: var(--accent2); background: transparent; }
+  .status { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); margin: 12px 0; min-height: 44px; display: flex; align-items: center; gap: 8px; }
+  .status.active { border-color: var(--accent); color: var(--accent); }
+  .status.error { border-color: var(--accent2); color: var(--accent2); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
+  .progress-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin: 8px 0; display: none; }
+  .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; }
+  .results-header { display: flex; justify-content: space-between; align-items: center; margin: 20px 0 12px; }
+  .results-header h2 { font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+  .count { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent); background: rgba(0,255,136,0.1); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(0,255,136,0.2); }
+  .results-list { display: flex; flex-direction: column; gap: 10px; }
+  .lead-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; }
+  .lead-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+  .lead-card.score-bad::before { background: var(--accent2); }
+  .lead-card.score-mid::before { background: #ffaa00; }
+  .lead-card.score-ok::before { background: var(--accent); }
+  .lead-card.no-web::before { background: #8844ff; }
+  .lead-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .lead-name { font-size: 14px; font-weight: 700; }
+  .lead-addr { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .score-pill { font-family: 'Space Mono', monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+  .score-bad .score-pill { background: rgba(255,51,102,0.15); color: var(--accent2); border: 1px solid rgba(255,51,102,0.3); }
+  .score-mid .score-pill { background: rgba(255,170,0,0.15); color: #ffaa00; border: 1px solid rgba(255,170,0,0.3); }
+  .score-ok .score-pill { background: rgba(0,255,136,0.1); color: var(--accent); border: 1px solid rgba(0,255,136,0.2); }
+  .no-web .score-pill { background: rgba(136,68,255,0.15); color: #8844ff; border: 1px solid rgba(136,68,255,0.3); }
+  .lead-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 11px; color: var(--muted); font-family: 'Space Mono', monospace; }
+  .lead-meta a { color: #4488ff; text-decoration: none; }
+  .tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag-issue { font-size: 10px; font-family: 'Space Mono', monospace; padding: 2px 8px; border-radius: 4px; background: rgba(255,51,102,0.1); color: #ff6688; border: 1px solid rgba(255,51,102,0.2); }
+  .tag-opp { font-size: 10px; font-family: 'Space Mono', monospace; padding: 2px 8px; border-radius: 4px; background: rgba(136,68,255,0.1); color: #aa88ff; border: 1px solid rgba(136,68,255,0.2); }
+  .export-btn { background: transparent; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); cursor: pointer; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; padding: 8px 16px; transition: all 0.2s; }
+  .export-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .warning { background: rgba(255,170,0,0.08); border: 1px solid rgba(255,170,0,0.25); border-radius: 8px; padding: 10px 14px; font-size: 11px; color: #ffcc44; font-family: 'Space Mono', monospace; margin-bottom: 12px; line-height: 1.6; }
+  .stars { color: #ffaa00; }
+  #resultsSection { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>BCN <span>Lead</span> Finder</h1>
+  <div class="badge">v2.0</div>
+</div>
+
+<div class="warning">
+  ⚠ Usa Places API (New). Los leads se ordenan por oportunidad: sin web primero, luego peor PageSpeed.
+</div>
+
+<div class="config-grid">
+  <div class="field full">
+    <label>Google Places API Key</label>
+    <input type="password" id="apiKey" placeholder="AIzaSy..." />
+  </div>
+  <div class="field">
+    <label>Sector</label>
+    <select id="sector">
+      <option value="restaurant">Restaurantes</option>
+      <option value="hair_salon">Peluquerías</option>
+      <option value="gym">Gimnasios</option>
+      <option value="lawyer">Abogados</option>
+      <option value="dentist">Dentistas</option>
+      <option value="real_estate_agency">Inmobiliarias</option>
+      <option value="plumber">Fontaneros</option>
+      <option value="electrician">Electricistas</option>
+      <option value="accounting">Contables / Gestorías</option>
+      <option value="car_repair">Talleres</option>
+      <option value="clothing_store">Tiendas de ropa</option>
+      <option value="beauty_salon">Centros de estética</option>
+      <option value="physiotherapist">Fisioterapeutas</option>
+      <option value="veterinary_care">Veterinarias</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>Resultados máx.</label>
+    <select id="maxResults">
+      <option value="10">10 negocios</option>
+      <option value="20" selected>20 negocios</option>
+      <option value="40">40 negocios</option>
+    </select>
+  </div>
+</div>
+
+<button class="btn" id="searchBtn" onclick="startSearch()">🔍 Buscar Leads en Barcelona</button>
+<button class="btn btn-secondary" onclick="clearResults()">Limpiar resultados</button>
+
+<div id="status" class="status"><span>Listo para buscar.</span></div>
+<div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+
+<div id="resultsSection">
+  <div class="results-header">
+    <h2>Leads encontrados</h2>
+    <div style="display:flex;gap:8px;align-items:center">
+      <span class="count" id="countBadge">0</span>
+      <button class="export-btn" onclick="exportCSV()">↓ Exportar CSV</button>
+    </div>
+  </div>
+  <div class="results-list" id="resultsList"></div>
+</div>
+
+<script>
+let allLeads = [];
+
+function setStatus(msg, type) {
+  const el = document.getElementById('status');
+  el.className = 'status' + (type ? ' ' + type : '');
+  el.innerHTML = type === 'active'
+    ? `<div class="dot"></div><span>${msg}</span>`
+    : `<span>${msg}</span>`;
+}
+
+function setProgress(pct) {
+  const bar = document.getElementById('progressBar');
+  const fill = document.getElementById('progressFill');
+  if (pct > 0) { bar.style.display = 'block'; fill.style.width = pct + '%'; }
+  else { bar.style.display = 'none'; fill.style.width = '0%'; }
+}
+
+async function placesSearch(apiKey, includedType, maxCount) {
+  const res = await fetch('/api/proxy?endpoint=places%3AsearchNearby', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.websiteUri,places.nationalPhoneNumber,places.regularOpeningHours'
+    },
+    body: JSON.stringify({
+      includedTypes: [includedType],
+      maxResultCount: Math.min(maxCount, 20),
+      locationRestriction: {
+        circle: {
+          center: { latitude: 41.3851, longitude: 2.1734 },
+          radius: 12000.0
+        }
+      }
+    })
+  });
+  return res.json();
+}
+
+async function getPageSpeed(website) {
+  try {
+
+    const res = await fetch(`/api/proxy?endpoint=..%2F..%2F..%2F..%2Fpagespeedonline%2Fv5%2FrunPagespeed%3Furl=${encodeURIComponent(website)}%26strategy%3Dmobile`);
+    // PageSpeed no requiere auth, llamar directo
+    const psRes = await fetch(`https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(website)}&strategy=mobile`);
+    if (!psRes.ok) return null;
+    const data = await psRes.json();
+    const score = data?.lighthouseResult?.categories?.performance?.score;
+    return score !== undefined ? Math.round(score * 100) : null;
+  } catch { return null; }
+}
+
+function scoreClass(score, hasWeb) {
+  if (!hasWeb) return 'no-web';
+  if (score === null) return 'score-mid';
+  if (score < 40) return 'score-bad';
+  if (score < 70) return 'score-mid';
+  return 'score-ok';
+}
+
+function scoreLabel(score, hasWeb) {
+  if (!hasWeb) return '🔴 Sin web';
+  if (score === null) return '⚪ Sin datos PS';
+  if (score < 40) return `🔴 Score: ${score}`;
+  if (score < 70) return `🟡 Score: ${score}`;
+  return `🟢 Score: ${score}`;
+}
+
+function renderCard(l) {
+  const sc = scoreClass(l.score, !!l.website);
+  const sl = scoreLabel(l.score, !!l.website);
+  let tags = '';
+  if (!l.website) {
+    tags = `<div class="tags"><span class="tag-opp">💡 Sin web — alta oportunidad</span></div>`;
+  } else if (l.score !== null && l.score < 40) {
+    tags = `<div class="tags"><span class="tag-issue">Carga lenta</span><span class="tag-issue">Mala UX mobile</span>${l.score < 25 ? '<span class="tag-issue">SEO penalizado</span>' : ''}<span class="tag-opp">💡 Oportunidad</span></div>`;
+  } else if (l.score !== null && l.score < 70) {
+    tags = `<div class="tags"><span class="tag-issue">Mejorable en mobile</span><span class="tag-opp">💡 Oportunidad media</span></div>`;
+  }
+  const stars = l.rating ? `<span class="stars">${'★'.repeat(Math.round(l.rating))}${'☆'.repeat(5-Math.round(l.rating))}</span> ${l.rating}` : '';
+  const reviews = l.userRatingCount ? `<span>${l.userRatingCount} reseñas</span>` : '';
+  const web = l.website
+    ? `<a href="${l.website}" target="_blank">↗ ${l.website.replace(/^https?:\/\/(www\.)?/,'').split('/')[0]}</a>`
+    : `<span style="color:#8844ff">Sin web registrada</span>`;
+  const phone = l.phone ? `<span>📞 ${l.phone}</span>` : '';
+  return `
+    <div class="lead-card ${sc}">
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${l.name}</div>
+          <div class="lead-addr">${l.address || 'Barcelona'}</div>
+        </div>
+        <div class="score-pill">${sl}</div>
+      </div>
+      <div class="lead-meta">${stars}${reviews}${web}${phone}</div>
+      ${tags}
+    </div>`;
+}
+
+function prioritySort(l) {
+  if (!l.website) return 0;
+  if (l.score !== null && l.score < 40) return 1;
+  if (l.score !== null && l.score < 70) return 2;
+  if (l.score === null) return 3;
+  return 4;
+}
+
+async function startSearch() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const sector = document.getElementById('sector').value;
+  const maxResults = parseInt(document.getElementById('maxResults').value);
+  if (!apiKey) { setStatus('⚠ Ingresá tu API Key', 'error'); return; }
+
+  allLeads = [];
+  document.getElementById('resultsList').innerHTML = '';
+  document.getElementById('resultsSection').style.display = 'none';
+  document.getElementById('searchBtn').disabled = true;
+  setProgress(5);
+  setStatus('Buscando negocios en Barcelona...', 'active');
+
+  try {
+    const data = await placesSearch(apiKey, sector, maxResults);
+
+    if (data.error) {
+      setStatus(`❌ ${data.error.message || 'Error de API'}`, 'error');
+      document.getElementById('searchBtn').disabled = false;
+      setProgress(0); return;
+    }
+
+    const places = data.places || [];
+    if (places.length === 0) {
+      setStatus('⚠ No se encontraron resultados para este sector', 'error');
+      document.getElementById('searchBtn').disabled = false;
+      setProgress(0); return;
+    }
+
+    setProgress(20);
+    setStatus(`${places.length} negocios encontrados. Analizando PageSpeed...`, 'active');
+
+    for (let i = 0; i < places.length; i++) {
+      const p = places[i];
+      setProgress(20 + Math.round((i / places.length) * 75));
+      setStatus(`Analizando ${i + 1}/${places.length}: ${p.displayName?.text || p.id}`, 'active');
+
+      const website = p.websiteUri || null;
+      let score = null;
+      if (website) score = await getPageSpeed(website);
+
+      allLeads.push({
+        name: p.displayName?.text || 'Sin nombre',
+        address: p.formattedAddress || 'Barcelona',
+        rating: p.rating,
+        userRatingCount: p.userRatingCount,
+        website,
+        phone: p.nationalPhoneNumber || null,
+        score
+      });
+    }
+
+    allLeads.sort((a, b) => prioritySort(a) - prioritySort(b));
+    setProgress(100);
+    setStatus(`✅ Listo — ${allLeads.length} leads analizados`, 'active');
+    document.getElementById('countBadge').textContent = allLeads.length;
+    document.getElementById('resultsList').innerHTML = allLeads.map(renderCard).join('');
+    document.getElementById('resultsSection').style.display = 'block';
+    setTimeout(() => setProgress(0), 800);
+  } catch (err) {
+    setStatus(`❌ Error: ${err.message}`, 'error');
+    setProgress(0);
+  }
+  document.getElementById('searchBtn').disabled = false;
+}
+
+function clearResults() {
+  allLeads = [];
+  document.getElementById('resultsList').innerHTML = '';
+  document.getElementById('resultsSection').style.display = 'none';
+  setStatus('Listo para buscar.');
+  setProgress(0);
+}
+
+function exportCSV() {
+  if (!allLeads.length) return;
+  const headers = ['Nombre','Dirección','Rating','Reseñas','Web','PageSpeed Mobile','Teléfono'];
+  const rows = allLeads.map(l => [
+    `"${l.name}"`, `"${l.address || ''}"`,
+    l.rating || '', l.userRatingCount || '',
+    l.website || 'Sin web',
+    l.score !== null ? l.score : 'N/A',
+    l.phone || ''
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `leads_barcelona_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
