@@ -1,5 +1,10 @@
 {
   "name": "bcn-leads",
   "version": "1.1.0",
-  "private": true
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "dev": "node scripts/dev.js"
+  }
 }

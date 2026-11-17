@@ -1,9 +1,8 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Goog-Api-Key, X-Goog-FieldMask');
+import { isSameOrigin } from './_lib/origin.js';
+import { safeFetch } from './_lib/safe-fetch.js';
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+export default async function handler(req, res) {
+  if (!isSameOrigin(req.headers)) return res.status(403).json({ error: 'Forbidden' });
 
   const { endpoint, scrape } = req.query;
 
@@ -11,17 +10,9 @@ export default async function handler(req, res) {
   if (scrape) {
     try {
       const targetUrl = decodeURIComponent(scrape);
-      const response = await fetch(targetUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; LeadBot/1.0)',
-          'Accept': 'text/html,application/xhtml+xml',
-        },
-        signal: AbortSignal.timeout(8000),
-      });
+      const { status, html } = await safeFetch(targetUrl);
 
-      if (!response.ok) return res.status(200).json({ emails: [] });
-
-      const html = await response.text();
+      if (status < 200 || status >= 300) return res.status(200).json({ emails: [] });
 
       // Extraer emails del HTML
       const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
@@ -46,6 +37,8 @@ export default async function handler(req, res) {
 
   // --- Modo Places API ---
   if (!endpoint) return res.status(400).json({ error: 'Missing endpoint or scrape param' });
+  if (endpoint !== 'places:searchText') return res.status(400).json({ error: 'Endpoint not allowed' });
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const apiKey = req.headers['x-goog-api-key'];
   const fieldMask = req.headers['x-goog-fieldmask'];
@@ -61,7 +54,7 @@ export default async function handler(req, res) {
       },
     };
 
-    if (req.method === 'POST' && req.body) {
+    if (req.body) {
       fetchOptions.body = JSON.stringify(req.body);
     }
 
