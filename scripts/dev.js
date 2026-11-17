@@ -1,7 +1,7 @@
 // Servidor local sin dependencias: sirve la raíz del repo y emula el runtime de Vercel para /api/*.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { dirname, extname, isAbsolute, relative, resolve } from 'node:path';
+import { dirname, extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import handler from '../api/proxy.js';
 
@@ -57,6 +57,11 @@ async function serveStatic(res, url) {
     res.statusCode = 403;
     return res.end('Forbidden');
   }
+  // Nada de dotfiles ni carpetas ocultas (.git, .vercel, .superpowers, ...)
+  if (rel.split(sep).some((segment) => segment.startsWith('.'))) {
+    res.statusCode = 404;
+    return res.end('Not found');
+  }
 
   try {
     const data = await readFile(file);
@@ -78,4 +83,4 @@ createServer(async (req, res) => {
     if (!res.headersSent) res.statusCode = 500;
     res.end('Internal error');
   }
-}).listen(PORT, () => console.log(`http://localhost:${PORT}`));
+}).listen(PORT, '127.0.0.1', () => console.log(`http://127.0.0.1:${PORT}`));
